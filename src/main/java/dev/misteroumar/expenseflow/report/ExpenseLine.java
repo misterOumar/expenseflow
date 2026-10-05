@@ -45,22 +45,19 @@ public class ExpenseLine {
     @JoinColumn(name = "receipt_id", unique = true)
     private Receipt receipt;
 
-    public ExpenseLine(LocalDate spentOn, ExpenseCategory category, String description,
-                       BigDecimal amountHt, BigDecimal vatAmount) {
-        update(spentOn, category, description, amountHt, vatAmount);
+    ExpenseLine(LocalDate spentOn, ExpenseCategory category, String description,
+                BigDecimal amountHt, BigDecimal vatAmount, Receipt receipt) {
+        update(spentOn, category, description, amountHt, vatAmount, receipt);
     }
 
-    public void update(LocalDate spentOn, ExpenseCategory category, String description,
-                       BigDecimal amountHt, BigDecimal vatAmount) {
+    void update(LocalDate spentOn, ExpenseCategory category, String description,
+                BigDecimal amountHt, BigDecimal vatAmount, Receipt receipt) {
         this.spentOn = spentOn;
         this.category = category;
         this.description = description;
         this.amountHt = amountHt;
         this.vatAmount = vatAmount;
         this.amountTtc = amountHt.add(vatAmount);
-    }
-
-    public void attachReceipt(Receipt receipt) {
         this.receipt = receipt;
     }
 

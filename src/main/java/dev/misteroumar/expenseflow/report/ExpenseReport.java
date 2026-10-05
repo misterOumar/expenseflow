@@ -1,5 +1,8 @@
 package dev.misteroumar.expenseflow.report;
 
+import dev.misteroumar.expenseflow.common.error.BusinessConflictException;
+import dev.misteroumar.expenseflow.common.error.ResourceNotFoundException;
+import dev.misteroumar.expenseflow.receipt.Receipt;
 import dev.misteroumar.expenseflow.user.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -8,6 +11,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -75,25 +79,63 @@ public class ExpenseReport {
         return Collections.unmodifiableList(lines);
     }
 
+    public boolean isOwnedBy(User user) {
+        return owner.getId().equals(user.getId());
+    }
+
     public void updateDetails(String title, int periodMonth, int periodYear) {
+        ensureDraft();
         this.title = title;
         this.periodMonth = periodMonth;
         this.periodYear = periodYear;
     }
 
-    public void addLine(ExpenseLine line) {
+    public ExpenseLine addLine(LocalDate spentOn, ExpenseCategory category, String description,
+                               BigDecimal amountHt, BigDecimal vatAmount, Receipt receipt) {
+        ensureDraft();
+        ExpenseLine line = new ExpenseLine(spentOn, category, description, amountHt, vatAmount, receipt);
         lines.add(line);
         line.attachTo(this);
         recomputeTotal();
+        return line;
     }
 
-    public void removeLine(ExpenseLine line) {
+    public void updateLine(Long lineId, LocalDate spentOn, ExpenseCategory category, String description,
+                           BigDecimal amountHt, BigDecimal vatAmount, Receipt receipt) {
+        ensureDraft();
+        findLine(lineId).update(spentOn, category, description, amountHt, vatAmount, receipt);
+        recomputeTotal();
+    }
+
+    public void removeLine(Long lineId) {
+        ensureDraft();
+        ExpenseLine line = findLine(lineId);
         lines.remove(line);
         line.attachTo(null);
         recomputeTotal();
     }
 
-    public void recomputeTotal() {
+    /**
+     * Garantit qu'une note n'est modifiable qu'en statut DRAFT (§4.3).
+     *
+     * @throws BusinessConflictException si la note n'est pas en brouillon
+     */
+    public void ensureDraft() {
+        if (status != ReportStatus.DRAFT) {
+            throw new BusinessConflictException(
+                    "La note " + id + " est en statut " + status + " : seul un brouillon est modifiable.");
+        }
+    }
+
+    private ExpenseLine findLine(Long lineId) {
+        return lines.stream()
+                .filter(line -> line.getId().equals(lineId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Ligne " + lineId + " introuvable dans la note " + id + "."));
+    }
+
+    private void recomputeTotal() {
         this.totalAmount = lines.stream()
                 .map(ExpenseLine::getAmountTtc)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
