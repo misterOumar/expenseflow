@@ -64,7 +64,6 @@ public class ExpenseLine {
         this.receipt = receipt;
     }
 
-    // Appelé uniquement par ExpenseReport.addLine/removeLine pour garder les deux côtés synchronisés.
     void attachTo(ExpenseReport report) {
         this.report = report;
     }
