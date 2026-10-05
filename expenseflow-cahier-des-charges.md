@@ -1,61 +1,64 @@
 # ExpenseFlow - Cahier des charges
 
-**Version** 1.0 - figée
-**Durée** 4 semaines
-**Statut du projet** Projet d'apprentissage. Objectif : maîtriser les fondamentaux Spring Boot et découvrir Angular.
+**Version** 1.1
+**Date** 2026-10-05
+**Durée de réalisation** 4 semaines
 
 ---
 
-## 1. Objectif du document
+## 1. Objet du document
 
-Ce document existe pour **limiter le périmètre**, pas pour le décrire.
+Ce document définit les exigences fonctionnelles et techniques de l'application ExpenseFlow, application web de gestion des notes de frais.
 
-ExpenseFlow est un projet d'échauffement. Sa valeur ne vient pas de sa richesse fonctionnelle mais de la qualité technique d'un périmètre volontairement étroit. Toute fonctionnalité ajoutée en cours de route est une semaine volée au projet vitrine qui suit.
-
-**Règle unique :** si une idée n'est pas dans la section 4, elle n'est pas dans le projet. Elle ne devient pas « une petite exception », elle ne va pas « juste en bonus ». Elle va dans la section 5.
+Il fixe le périmètre de la version 1.0 : seules les fonctionnalités décrites en section 4 sont à réaliser. Les éléments listés en section 5 sont explicitement hors périmètre. Toute demande nouvelle fait l'objet d'une décision consignée en section 12 avant toute réalisation.
 
 ---
 
 ## 2. Contexte fonctionnel
 
-Un employé engage des frais professionnels (repas, transport, hébergement). Il les regroupe dans une note de frais mensuelle, y joint ses justificatifs, et la soumet. Son manager valide ou rejette. Le comptable marque comme payée.
+Un employé engage des frais professionnels (repas, transport, hébergement). Il les regroupe dans une note de frais mensuelle, y joint ses justificatifs et la soumet. Son manager valide ou rejette la note. Le comptable la marque comme payée.
 
-C'est tout. Il n'y a pas de deuxième cas d'usage.
+L'application couvre ce seul processus.
 
 ---
 
 ## 3. Acteurs et rôles
 
-| Rôle | Peut faire | Ne peut pas faire |
+| Rôle | Droits | Interdictions |
 |---|---|---|
-| `EMPLOYEE` | Créer, modifier et soumettre **ses** notes en brouillon. Consulter ses notes et leur historique. | Voir les notes d'un autre employé. Valider quoi que ce soit. |
-| `MANAGER` | Tout ce que fait un `EMPLOYEE`, plus : consulter et approuver/rejeter les notes **de ses subordonnés directs**. | Approuver sa propre note. Marquer comme payée. |
-| `ACCOUNTANT` | Consulter toutes les notes approuvées. Les marquer comme payées. Exporter en PDF. | Approuver ou rejeter. |
+| `EMPLOYEE` | Créer, modifier et soumettre **ses** notes en brouillon. Consulter ses notes et leur historique. | Voir les notes d'un autre employé. Valider une note. |
+| `MANAGER` | Droits d'un `EMPLOYEE`, plus : consulter et approuver/rejeter les notes **de ses subordonnés directs**. | Approuver sa propre note. Marquer une note comme payée. |
+| `ACCOUNTANT` | Consulter toutes les notes approuvées. Les marquer comme payées. Les exporter en PDF. | Approuver ou rejeter une note. |
 
-Un utilisateur a **exactement un rôle** et **exactement un manager** (nullable). Pas de rôles multiples, pas de délégation, pas de remplaçant en cas d'absence.
+Un utilisateur possède **exactement un rôle** et **au plus un manager**. Les rôles multiples, la délégation et la suppléance ne sont pas gérés.
 
 ---
 
-## 4. Périmètre inclus
+## 4. Exigences fonctionnelles
 
 ### 4.1 Authentification
 
-- Connexion par email + mot de passe, retour d'un JWT.
-- Mot de passe hashé (BCrypt).
-- Durée de vie du token : 24 h. Pas de refresh token.
+- Connexion par email et mot de passe ; le serveur retourne un jeton JWT.
+- Mots de passe stockés hashés (BCrypt).
+- Durée de vie du jeton : 24 h. Pas de jeton de rafraîchissement.
 - Pas d'inscription publique : les comptes sont créés par les managers.
 
 ### 4.2 Note de frais
 
-Une note de frais appartient à un employé et couvre une période (mois + année). Elle contient une ou plusieurs lignes.
+Une note de frais appartient à un employé et couvre une période (mois et année). Elle contient une ou plusieurs lignes.
 
-**Champs d'une note :** titre, période (mois/année), statut, montant total (calculé), dates de soumission et de décision, motif de rejet.
+**Champs d'une note :** titre, période (mois/année), statut, montant total (calculé), dates de soumission et de décision, auteur de la décision, motif de rejet.
 
 **Champs d'une ligne :** date de dépense, catégorie, description, montant HT, montant TVA, montant TTC (calculé), justificatif associé.
 
-**Catégories (enum figé) :** `MEAL`, `TRANSPORT`, `ACCOMMODATION`, `SUPPLIES`, `OTHER`.
+**Catégories :** `MEAL`, `TRANSPORT`, `ACCOMMODATION`, `SUPPLIES`, `OTHER`. Liste fermée.
 
-**Devise :** EUR uniquement, en dur. Pas de champ devise en base.
+**Devise :** EUR uniquement. Aucun champ devise n'est stocké.
+
+**Règles :**
+- Un employé possède au plus une note par période.
+- Le montant TTC d'une ligne est égal à la somme du montant HT et du montant TVA.
+- Le montant total d'une note est égal à la somme des montants TTC de ses lignes.
 
 ### 4.3 Workflow
 
@@ -67,60 +70,60 @@ DRAFT ──soumission──> SUBMITTED ──approbation──> APPROVED ──
 
 **Règles de transition :**
 
-| Transition | Rôle requis | Conditions |
+| Transition | Acteur autorisé | Conditions |
 |---|---|---|
-| `DRAFT` → `SUBMITTED` | Propriétaire | Au moins 1 ligne. Chaque ligne a un justificatif. |
+| `DRAFT` → `SUBMITTED` | Propriétaire | Au moins une ligne. Chaque ligne a un justificatif. |
 | `SUBMITTED` → `APPROVED` | Manager du propriétaire | Le manager n'est pas le propriétaire. |
-| `SUBMITTED` → `REJECTED` | Manager du propriétaire | Motif de rejet obligatoire (10 caractères min). |
+| `SUBMITTED` → `REJECTED` | Manager du propriétaire | Motif de rejet obligatoire (10 caractères minimum). |
 | `REJECTED` → `DRAFT` | Propriétaire | - |
 | `APPROVED` → `PAID` | `ACCOUNTANT` | - |
 
-Toute autre transition renvoie `409 Conflict`. Une note n'est modifiable qu'en statut `DRAFT`.
+Toute autre transition est refusée avec le code `409 Conflict`. Une note n'est modifiable qu'en statut `DRAFT`.
 
-**Un seul niveau de validation.** Pas de circuit à deux managers, pas de seuil de montant déclenchant une validation supplémentaire.
+La validation comporte un seul niveau : pas de circuit à plusieurs valideurs, pas de seuil de montant déclenchant une validation supplémentaire.
 
 ### 4.4 Justificatifs
 
-- Upload d'un fichier par ligne de frais.
+- Un fichier par ligne de frais.
 - Formats acceptés : `application/pdf`, `image/jpeg`, `image/png`.
 - Taille maximale : 5 Mo.
-- Stockage : système de fichiers local, hors du répertoire servi statiquement.
-- Téléchargement par un endpoint qui revérifie les droits d'accès.
+- Stockage sur le système de fichiers local, hors de tout répertoire servi statiquement.
+- Téléchargement uniquement via un endpoint qui contrôle les droits d'accès.
 
 ### 4.5 Export PDF
 
-Un endpoint génère un récapitulatif PDF d'une note en statut `APPROVED` ou `PAID` : en-tête (employé, période, statut), tableau des lignes, total. Généré à la volée, non stocké.
+Un endpoint génère un récapitulatif PDF d'une note en statut `APPROVED` ou `PAID` : en-tête (employé, période, statut), tableau des lignes, total. Le document est généré à la volée et n'est pas stocké.
 
-**Pas de logo d'entreprise, pas de mise en page travaillée, pas de template configurable.**
+Le document ne comporte ni logo, ni mise en page personnalisée, ni template configurable.
 
 ### 4.6 Notifications email
 
-Un email est envoyé au destinataire concerné lors des transitions `SUBMITTED`, `APPROVED`, `REJECTED`.
+Un email est envoyé au destinataire concerné lors des transitions vers `SUBMITTED`, `APPROVED` et `REJECTED`.
 
-- Envoi **après commit** de la transaction (voir section 7.2).
-- Corps en texte brut. Pas de template HTML.
-- En développement : MailHog ou log console. Pas de compte SMTP réel.
+- Envoi uniquement **après validation (commit)** de la transaction (voir section 7.2).
+- Corps en texte brut, sans template HTML.
+- En environnement de développement : MailHog ou journalisation console, sans serveur SMTP réel.
 
 ### 4.7 Historique
 
-Chaque transition de statut écrit une ligne d'historique : statut avant, statut après, auteur, horodatage, commentaire. Consultable sur la note.
+Chaque transition de statut enregistre une entrée d'historique : statut avant, statut après, auteur, horodatage, commentaire. L'historique est consultable sur la note.
 
 ---
 
-## 5. Périmètre exclu - définitif
+## 5. Hors périmètre
 
-Ces éléments sont écartés par décision, pas par manque de temps. Ils ne reviennent pas dans le projet, même si l'avance sur le planning le permettrait. En cas d'avance, on renforce les tests.
+Les éléments suivants sont exclus de la version 1.0.
 
 **Fonctionnel**
-- Export Excel (Apache POI) - n'apprend rien que PDFBox n'enseigne déjà
+- Export Excel
 - Notifications in-app, temps réel, WebSocket
 - Hiérarchie managériale à plusieurs niveaux, délégation, suppléance
 - Plafonds par catégorie, règles de politique de dépense, alertes de dépassement
 - Multi-devises, taux de change
-- Gestion des utilisateurs par interface (CRUD admin)
-- Inscription publique, mot de passe oublié, vérification email
+- Gestion des utilisateurs par interface (CRUD d'administration)
+- Inscription publique, mot de passe oublié, vérification d'email
 - Statistiques, tableaux de bord, graphiques
-- Recherche full-text, filtres avancés
+- Recherche plein texte, filtres avancés
 - Import de relevés bancaires ou de cartes affaires
 - OCR sur les justificatifs
 - Commentaires ou fil de discussion sur une note
@@ -128,14 +131,14 @@ Ces éléments sont écartés par décision, pas par manque de temps. Ils ne rev
 - Archivage, corbeille, suppression logique
 
 **Technique**
-- Spring State Machine - surdimensionné pour 5 états ; un enum avec méthodes de garde suffit et se défend mieux
-- MinIO / stockage objet - le système de fichiers couvre le besoin
-- Refresh tokens, OAuth2, SSO
+- Spring State Machine : le workflow à 5 états est porté par un enum et des méthodes de garde
+- Stockage objet (MinIO, S3) : le système de fichiers local couvre le besoin
+- Jetons de rafraîchissement, OAuth2, SSO
 - Cache (Redis, Caffeine)
 - Message broker
 - Multi-tenancy
-- Microservices - application monolithique, un seul module Maven
-- Internationalisation - français uniquement
+- Microservices : application monolithique, un seul module Maven
+- Internationalisation : interface en français uniquement
 - Tests end-to-end, tests front
 
 ---
@@ -143,7 +146,7 @@ Ces éléments sont écartés par décision, pas par manque de temps. Ils ne rev
 ## 6. Modèle de données
 
 ```sql
-users            (id, email UNIQUE, password_hash, full_name, role, manager_id → users)
+users            (id, email UNIQUE, password_hash, full_name, role, manager_id → users, created_at)
 
 expense_reports  (id, owner_id → users, title, period_month, period_year,
                   status, total_amount, submitted_at, decided_at,
@@ -151,9 +154,9 @@ expense_reports  (id, owner_id → users, title, period_month, period_year,
 
 expense_lines    (id, report_id → expense_reports, spent_on, category,
                   description, amount_ht, vat_amount, amount_ttc,
-                  receipt_id → receipts)
+                  receipt_id → receipts UNIQUE)
 
-receipts         (id, original_filename, stored_key, content_type,
+receipts         (id, original_filename, stored_key UNIQUE, content_type,
                   size_bytes, sha256, uploaded_by → users, uploaded_at)
 
 status_history   (id, report_id → expense_reports, from_status, to_status,
@@ -161,16 +164,17 @@ status_history   (id, report_id → expense_reports, from_status, to_status,
 ```
 
 **Contraintes**
-- Montants en `NUMERIC(12,2)`, mappés en `BigDecimal`. Jamais `double`.
-- `version` sur `expense_reports` pour le verrouillage optimiste.
-- Unicité sur `(owner_id, period_month, period_year)` : une seule note par employé et par mois.
-- Toutes les migrations via Flyway. `spring.jpa.hibernate.ddl-auto: validate`, jamais `update`.
+- Montants en `NUMERIC(12,2)`, mappés en `BigDecimal`. Aucun type flottant.
+- Colonne `version` sur `expense_reports` pour le verrouillage optimiste.
+- Unicité sur `(owner_id, period_month, period_year)`.
+- Contraintes `CHECK` en base sur les énumérations, les bornes de période, la cohérence `amount_ttc = amount_ht + vat_amount`, le type et la taille des justificatifs.
+- Schéma géré exclusivement par migrations Flyway. `spring.jpa.hibernate.ddl-auto: validate`.
 
 ---
 
 ## 7. Exigences techniques
 
-### 7.1 Stack imposée
+### 7.1 Stack
 
 | Couche | Choix |
 |---|---|
@@ -188,23 +192,23 @@ status_history   (id, report_id → expense_reports, from_status, to_status,
 | CI | GitHub Actions |
 | Déploiement | Docker + Coolify |
 
-### 7.2 Trois points à traiter explicitement
+### 7.2 Exigences techniques spécifiques
 
-Ce sont les arguments d'entretien du projet. Ils doivent être implémentés **et** documentés dans le README.
+Les trois points suivants doivent être implémentés et documentés dans le README.
 
-**Le problème N+1.** Charger une liste de notes avec leurs lignes déclenche naïvement N+1 requêtes. Constater le nombre avec les statistiques Hibernate, corriger avec `@EntityGraph` ou `join fetch`, consigner les deux chiffres.
+**Performance des requêtes (N+1).** Le chargement d'une liste de notes avec leurs lignes ne doit pas déclencher une requête par note. Le nombre de requêtes est mesuré avec les statistiques Hibernate avant et après optimisation (`@EntityGraph` ou `join fetch`) ; les deux mesures sont consignées.
 
-**L'email après commit.** Aucun appel réseau à l'intérieur d'une transaction : un SMTP lent immobilise la connexion base, et un rollback survenant après l'envoi laisse un email annonçant une décision qui n'existe pas. Implémentation : `@TransactionalEventListener(phase = AFTER_COMMIT)`.
+**Envoi des emails après commit.** Aucun appel réseau n'est effectué à l'intérieur d'une transaction : un serveur SMTP lent immobiliserait la connexion à la base, et un rollback postérieur à l'envoi produirait un email annonçant une décision inexistante. Implémentation : `@TransactionalEventListener(phase = AFTER_COMMIT)`.
 
-**L'upload sécurisé.** Ne jamais faire confiance au nom de fichier ni au `Content-Type` fourni par le client. Vérifier les magic bytes, liste blanche d'extensions, nom de stockage en UUID, chemin hors du répertoire public, plafond de taille. Servir le fichier par un endpoint qui contrôle les droits, jamais par une URL devinable.
+**Sécurité de l'upload.** Le nom de fichier et le `Content-Type` fournis par le client ne sont pas considérés comme fiables. Exigences : vérification des magic bytes, liste blanche d'extensions, nom de stockage généré (UUID), stockage hors du répertoire public, plafond de taille. Le fichier est servi par un endpoint qui contrôle les droits, jamais par une URL devinable.
 
 ### 7.3 Conventions API
 
 - REST, préfixe `/api`.
-- Erreurs au format `ProblemDetail` (RFC 7807), natif Spring 6.
-- Gestionnaire d'exceptions global. Aucune stack trace renvoyée au client.
+- Erreurs au format `ProblemDetail` (RFC 9457).
+- Gestionnaire d'exceptions global. Aucune stack trace n'est renvoyée au client.
 - Validation par Bean Validation sur les DTO d'entrée.
-- Jamais d'entité JPA exposée : DTO en entrée et en sortie.
+- Aucune entité JPA exposée : DTO en entrée et en sortie.
 - Documentation OpenAPI via springdoc.
 
 ---
@@ -228,6 +232,7 @@ POST   /api/reports/{id}/submit
 POST   /api/reports/{id}/approve
 POST   /api/reports/{id}/reject          body : { reason }
 POST   /api/reports/{id}/pay
+POST   /api/reports/{id}/reopen          REJECTED → DRAFT
 
 GET    /api/reports/{id}/history
 GET    /api/reports/{id}/export.pdf
@@ -236,20 +241,20 @@ POST   /api/receipts                     multipart
 GET    /api/receipts/{id}                contrôle d'accès
 ```
 
-Les transitions sont des endpoints d'action dédiés, pas un `PATCH` sur le champ `status` - l'intention métier reste explicite et l'autorisation se contrôle par action.
+Les transitions sont exposées par des endpoints d'action dédiés et non par une modification du champ `status` : chaque action a une intention métier explicite et une autorisation propre.
 
 ---
 
 ## 9. Front Angular
 
-**Semaine 4 uniquement, backend gelé.** Quatre écrans, pas un de plus.
+Quatre écrans :
 
-1. **Login** - formulaire, stockage du token, intercepteur HTTP, guard de route.
-2. **Mes notes** - liste avec statut, accès au détail.
-3. **Édition d'une note** - formulaire réactif avec lignes dynamiques (`FormArray`), upload de justificatif, bouton de soumission.
-4. **Validation manager** - liste des notes en attente, approbation, rejet avec motif.
+1. **Connexion** : formulaire, stockage du jeton, intercepteur HTTP, garde de route.
+2. **Mes notes** : liste avec statut, accès au détail.
+3. **Édition d'une note** : formulaire réactif avec lignes dynamiques (`FormArray`), upload de justificatif, bouton de soumission.
+4. **Validation manager** : liste des notes en attente, approbation, rejet avec motif.
 
-**Exclu du front :** design personnalisé (Angular Material par défaut), librairie de state management, SSR, lazy loading, tests, écran comptable (le passage en `PAID` se fait via Swagger).
+**Hors périmètre front :** design personnalisé (Angular Material par défaut), librairie de gestion d'état, SSR, lazy loading, tests, écran comptable (le passage en `PAID` s'effectue via l'interface OpenAPI).
 
 ---
 
@@ -257,32 +262,33 @@ Les transitions sont des endpoints d'action dédiés, pas un `PATCH` sur le cham
 
 | Semaine | Contenu | Livrable |
 |---|---|---|
-| 1 | Setup, Docker PostgreSQL, Flyway, entités, DTO/MapStruct, CRUD brouillon, gestion d'erreurs globale | CRUD fonctionnel sur Swagger |
+| 1 | Setup, Docker PostgreSQL, Flyway, entités, DTO/MapStruct, CRUD brouillon, gestion d'erreurs globale | CRUD fonctionnel via l'interface OpenAPI |
 | 2 | Spring Security + JWT, rôles, autorisation au niveau ressource, transitions et gardes, historique, tests Testcontainers | Workflow complet testé |
 | 3 | Upload, export PDF, email après commit, Dockerfile, CI, déploiement Coolify, README | Application en ligne |
-| 4 | Angular : 4 écrans | Front connecté au back déployé |
+| 4 | Front Angular (4 écrans), backend gelé | Front connecté au backend déployé |
 
-**Date butoir dure :** à la fin de la semaine 4, ExpenseFlow est déployé quel qu'en soit l'état. En cas de retard, on réduit le périmètre - on ne prolonge pas. Les écrans Angular se coupent avant les tests.
+**Échéance ferme :** l'application est déployée à la fin de la semaine 4. En cas de retard, le périmètre est réduit ; l'échéance n'est pas repoussée. Les écrans Angular sont réduits en priorité.
 
 ---
 
-## 11. Définition de terminé
+## 11. Critères d'acceptation
 
 - [ ] Application accessible par une URL publique
 - [ ] Pipeline CI verte sur la branche principale
 - [ ] Au moins un test d'intégration Testcontainers par transition de statut
 - [ ] Les transitions interdites renvoient `409` et sont couvertes par des tests
-- [ ] Un employé ne peut accéder à la note d'un autre - testé
+- [ ] Un employé ne peut pas accéder à la note d'un autre employé - testé
 - [ ] Un manager ne peut pas approuver sa propre note - testé
-- [ ] README contenant : schéma de données, les trois points de la section 7.2 expliqués, commandes de lancement local
-- [ ] Jeu de données de démonstration chargé par Flyway (3 employés, 1 manager, 1 comptable, quelques notes dans chaque statut)
+- [ ] README contenant : schéma de données, les trois exigences de la section 7.2, commandes de lancement local
+- [ ] Jeu de données de démonstration chargé par Flyway (3 employés, 1 manager, 1 comptable, des notes dans chaque statut)
 
 ---
 
-## 12. Journal des refus
+## 12. Journal des décisions
 
-À remplir en cours de route. Toute idée écartée s'écrit ici plutôt que de rentrer dans le code. C'est ce qui protège le planning.
+Toute demande d'évolution ou écart par rapport à ce document est consigné ici avec sa décision.
 
-| Date | Idée | Raison du refus |
+| Date | Sujet | Décision |
 |---|---|---|
-| 2026-10-05 | Rester sur Spring Boot 3.x | Initializr fournit la 4.x ; c'est la version actuelle et celle du projet vitrine. Ce n'est pas un ajout de périmètre, juste une mise à jour de version. |
+| 2026-10-05 | Version de Spring Boot (3.x initialement prévue) | Spring Boot 4.x retenu : version courante, sans impact sur le périmètre fonctionnel. |
+| 2026-10-05 | Endpoint de la transition `REJECTED` → `DRAFT` | Ajout de `POST /api/reports/{id}/reopen`, transition prévue en 4.3 mais absente de la liste des endpoints. |
