@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ExpenseReportRepository extends JpaRepository<ExpenseReport, Long> {
 
@@ -32,4 +33,7 @@ public interface ExpenseReportRepository extends JpaRepository<ExpenseReport, Lo
     List<ExpenseReport> findVisible(@Param("userId") Long userId,
                                     @Param("accountant") boolean accountant,
                                     @Param("status") ReportStatus status);
+
+    @Query("select l.report from ExpenseLine l where l.receipt.id = :receiptId")
+    Optional<ExpenseReport> findByReceiptId(@Param("receiptId") Long receiptId);
 }

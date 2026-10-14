@@ -15,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.Map;
@@ -95,6 +96,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                         (first, second) -> first));
         body.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    /**
+     * Fichier refusé par le conteneur de servlets avant d'atteindre le contrôleur.
+     */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex,
+                                                                          HttpHeaders headers,
+                                                                          HttpStatusCode status,
+                                                                          WebRequest request) {
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(problem(HttpStatus.CONTENT_TOO_LARGE,
+                "Fichier trop volumineux", "Le fichier dépasse la taille maximale autorisée."));
     }
 
     private ProblemDetail problem(HttpStatus status, String title, String detail) {

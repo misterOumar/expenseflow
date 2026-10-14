@@ -3,6 +3,7 @@ package dev.misteroumar.expenseflow.report;
 import dev.misteroumar.expenseflow.common.error.BusinessConflictException;
 import dev.misteroumar.expenseflow.common.error.ResourceNotFoundException;
 import dev.misteroumar.expenseflow.receipt.Receipt;
+import dev.misteroumar.expenseflow.user.Role;
 import dev.misteroumar.expenseflow.user.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -81,6 +82,22 @@ public class ExpenseReport {
 
     public boolean isOwnedBy(User user) {
         return owner.getId().equals(user.getId());
+    }
+
+    public boolean isManagedBy(User user) {
+        User manager = owner.getManager();
+        return manager != null && manager.getId().equals(user.getId());
+    }
+
+    /**
+     * Une note est visible par son propriétaire, par le manager du propriétaire,
+     * et par les comptables une fois approuvée ou payée.
+     */
+    public boolean isVisibleTo(User user) {
+        return isOwnedBy(user)
+                || isManagedBy(user)
+                || (user.getRole() == Role.ACCOUNTANT
+                    && (status == ReportStatus.APPROVED || status == ReportStatus.PAID));
     }
 
     public void updateDetails(String title, int periodMonth, int periodYear) {

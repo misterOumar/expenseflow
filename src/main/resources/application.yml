@@ -19,11 +19,19 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
 expenseflow:
   jwt:
     # Valeur de développement uniquement : surchargée par la variable JWT_SECRET en production.
     secret: ${JWT_SECRET:F1tgZxsf9r/GaRrWrpbViUv5UrwjX/6cOpbakIaACwQ=}
     ttl: 24h
+  receipts:
+    directory: ${RECEIPTS_DIR:./data/receipts}
+    max-size: 5MB
 
 logging:
   level:

@@ -1,8 +1,6 @@
 package dev.misteroumar.expenseflow;
 
 import com.jayway.jsonpath.JsonPath;
-import dev.misteroumar.expenseflow.receipt.Receipt;
-import dev.misteroumar.expenseflow.receipt.ReceiptRepository;
 import dev.misteroumar.expenseflow.user.User;
 import dev.misteroumar.expenseflow.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,13 +9,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,7 +25,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Base des tests d'intégration : application complète, PostgreSQL Testcontainers et comptes
  * de démonstration de la migration V3. Les notes et justificatifs sont vidés avant chaque test.
  */
-@SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
+@SpringBootTest(properties = {
+        "spring.jpa.properties.hibernate.generate_statistics=true",
+        "expenseflow.receipts.directory=${java.io.tmpdir}/expenseflow-test-receipts"
+})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 public abstract class IntegrationTest {
@@ -36,6 +39,8 @@ public abstract class IntegrationTest {
     protected static final String MANAGER = "manager@expenseflow.dev";
     protected static final String ACCOUNTANT = "compta@expenseflow.dev";
 
+    protected static final byte[] PDF = "%PDF-1.4\n%test\n".getBytes(StandardCharsets.US_ASCII);
+
     @Autowired
     protected MockMvc mvc;
 
@@ -44,9 +49,6 @@ public abstract class IntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
-
-    @Autowired
-    private ReceiptRepository receiptRepository;
 
     @BeforeEach
     void cleanDatabase() {
@@ -79,7 +81,7 @@ public abstract class IntegrationTest {
     }
 
     protected void addLine(String email, long reportId, boolean withReceipt) throws Exception {
-        String receiptId = withReceipt ? String.valueOf(createReceipt(email)) : "null";
+        String receiptId = withReceipt ? String.valueOf(uploadReceipt(email)) : "null";
         mvc.perform(post("/api/reports/{id}/lines", reportId).with(as(email))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -107,9 +109,12 @@ public abstract class IntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    private long createReceipt(String email) {
-        Receipt receipt = new Receipt("ticket.pdf", UUID.randomUUID().toString(), "application/pdf",
-                1024, "0".repeat(64), user(email));
-        return receiptRepository.save(receipt).getId();
+    protected long uploadReceipt(String email) throws Exception {
+        String body = mvc.perform(multipart("/api/receipts")
+                        .file(new MockMultipartFile("file", "ticket.pdf", "application/pdf", PDF))
+                        .with(as(email)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return ((Number) JsonPath.read(body, "$.id")).longValue();
     }
 }

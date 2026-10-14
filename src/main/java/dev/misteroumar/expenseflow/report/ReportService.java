@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.function.BiConsumer;
 
 /**
@@ -200,7 +199,7 @@ public class ReportService {
     }
 
     private void ensureManagerOfOwner(User actor, ExpenseReport report) {
-        if (!isManagerOfOwner(actor, report)) {
+        if (!report.isManagedBy(actor)) {
             throw new AccessDeniedException("Seul le manager du propriétaire peut statuer sur cette note.");
         }
     }
@@ -212,25 +211,13 @@ public class ReportService {
     }
 
     /**
-     * Une note est visible par son propriétaire, par le manager du propriétaire,
-     * et par les comptables une fois approuvée. Sinon elle est traitée comme inexistante.
+     * Charge une note visible par l'utilisateur (voir {@link ExpenseReport#isVisibleTo}).
+     * Sinon elle est traitée comme inexistante.
      */
     private ExpenseReport loadVisibleReport(User user, Long reportId) {
         return reportRepository.findById(reportId)
-                .filter(report -> report.isOwnedBy(user)
-                        || isManagerOfOwner(user, report)
-                        || isAccountantView(user, report))
+                .filter(report -> report.isVisibleTo(user))
                 .orElseThrow(() -> new ResourceNotFoundException("Note " + reportId + " introuvable."));
-    }
-
-    private boolean isManagerOfOwner(User user, ExpenseReport report) {
-        User manager = report.getOwner().getManager();
-        return manager != null && Objects.equals(manager.getId(), user.getId());
-    }
-
-    private boolean isAccountantView(User user, ExpenseReport report) {
-        return user.getRole() == Role.ACCOUNTANT
-                && (report.getStatus() == ReportStatus.APPROVED || report.getStatus() == ReportStatus.PAID);
     }
 
     private ExpenseReport loadOwnedReport(Long userId, Long reportId) {
