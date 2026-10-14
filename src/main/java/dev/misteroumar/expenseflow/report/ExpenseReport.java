@@ -116,6 +116,66 @@ public class ExpenseReport {
     }
 
     /**
+     * DRAFT → SUBMITTED.
+     *
+     * @throws BusinessConflictException si la note est vide ou si une ligne n'a pas de justificatif
+     */
+    public void submit() {
+        if (lines.isEmpty()) {
+            throw new BusinessConflictException("La note " + id + " ne contient aucune ligne.");
+        }
+        if (lines.stream().anyMatch(line -> line.getReceipt() == null)) {
+            throw new BusinessConflictException("Chaque ligne de la note " + id + " doit avoir un justificatif.");
+        }
+        transitionTo(ReportStatus.SUBMITTED);
+        this.submittedAt = Instant.now();
+    }
+
+    /**
+     * SUBMITTED → APPROVED.
+     *
+     * @throws BusinessConflictException si le valideur est le propriétaire de la note
+     */
+    public void approve(User approver) {
+        ensureNotOwnedBy(approver);
+        transitionTo(ReportStatus.APPROVED);
+        recordDecision(approver);
+    }
+
+    /**
+     * SUBMITTED → REJECTED.
+     *
+     * @throws BusinessConflictException si le valideur est le propriétaire ou si le motif fait moins de 10 caractères
+     */
+    public void reject(User approver, String reason) {
+        ensureNotOwnedBy(approver);
+        if (reason == null || reason.strip().length() < 10) {
+            throw new BusinessConflictException("Le motif de rejet doit faire au moins 10 caractères.");
+        }
+        transitionTo(ReportStatus.REJECTED);
+        recordDecision(approver);
+        this.rejectionReason = reason.strip();
+    }
+
+    /**
+     * APPROVED → PAID.
+     */
+    public void pay() {
+        transitionTo(ReportStatus.PAID);
+    }
+
+    /**
+     * REJECTED → DRAFT. La décision précédente est effacée de la note mais reste dans l'historique.
+     */
+    public void reopen() {
+        transitionTo(ReportStatus.DRAFT);
+        this.submittedAt = null;
+        this.decidedAt = null;
+        this.decidedBy = null;
+        this.rejectionReason = null;
+    }
+
+    /**
      * Garantit qu'une note n'est modifiable qu'en statut DRAFT (§4.3).
      *
      * @throws BusinessConflictException si la note n'est pas en brouillon
@@ -125,6 +185,25 @@ public class ExpenseReport {
             throw new BusinessConflictException(
                     "La note " + id + " est en statut " + status + " : seul un brouillon est modifiable.");
         }
+    }
+
+    private void transitionTo(ReportStatus target) {
+        if (!status.canTransitionTo(target)) {
+            throw new BusinessConflictException(
+                    "Transition " + status + " → " + target + " interdite pour la note " + id + ".");
+        }
+        this.status = target;
+    }
+
+    private void ensureNotOwnedBy(User approver) {
+        if (isOwnedBy(approver)) {
+            throw new BusinessConflictException("Un valideur ne peut pas statuer sur sa propre note.");
+        }
+    }
+
+    private void recordDecision(User approver) {
+        this.decidedAt = Instant.now();
+        this.decidedBy = approver;
     }
 
     private ExpenseLine findLine(Long lineId) {

@@ -1,6 +1,7 @@
 package dev.misteroumar.expenseflow.report;
 
 import dev.misteroumar.expenseflow.report.dto.LineRequest;
+import dev.misteroumar.expenseflow.report.dto.RejectRequest;
 import dev.misteroumar.expenseflow.security.CurrentUserId;
 import dev.misteroumar.expenseflow.report.dto.ReportDetailResponse;
 import dev.misteroumar.expenseflow.report.dto.ReportRequest;
@@ -25,9 +26,9 @@ import java.net.URI;
 import java.util.List;
 
 /**
- * Endpoints de gestion des notes de frais en brouillon, réservés à l'utilisateur authentifié.
+ * Endpoints de gestion des notes de frais et de leur workflow, réservés à l'utilisateur authentifié.
  */
-@Tag(name = "Notes de frais", description = "Création et modification des brouillons")
+@Tag(name = "Notes de frais", description = "Brouillons, lignes et transitions de statut")
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
@@ -97,5 +98,36 @@ public class ReportController {
     @GetMapping("/{id}/history")
     public List<StatusHistoryResponse> history(@CurrentUserId Long userId, @PathVariable Long id) {
         return reportService.history(userId, id);
+    }
+
+    @Operation(summary = "Soumettre une note", description = "Propriétaire. 409 si la note est vide ou si une ligne n'a pas de justificatif.")
+    @PostMapping("/{id}/submit")
+    public ReportDetailResponse submit(@CurrentUserId Long userId, @PathVariable Long id) {
+        return reportService.submit(userId, id);
+    }
+
+    @Operation(summary = "Approuver une note", description = "Manager du propriétaire. 409 si la note n'est pas en SUBMITTED.")
+    @PostMapping("/{id}/approve")
+    public ReportDetailResponse approve(@CurrentUserId Long userId, @PathVariable Long id) {
+        return reportService.approve(userId, id);
+    }
+
+    @Operation(summary = "Rejeter une note", description = "Manager du propriétaire. Motif de 10 caractères minimum.")
+    @PostMapping("/{id}/reject")
+    public ReportDetailResponse reject(@CurrentUserId Long userId, @PathVariable Long id,
+                                       @Valid @RequestBody RejectRequest request) {
+        return reportService.reject(userId, id, request.reason());
+    }
+
+    @Operation(summary = "Marquer une note comme payée", description = "Comptable. 409 si la note n'est pas en APPROVED.")
+    @PostMapping("/{id}/pay")
+    public ReportDetailResponse pay(@CurrentUserId Long userId, @PathVariable Long id) {
+        return reportService.pay(userId, id);
+    }
+
+    @Operation(summary = "Rouvrir une note rejetée", description = "Propriétaire. Repasse la note en DRAFT.")
+    @PostMapping("/{id}/reopen")
+    public ReportDetailResponse reopen(@CurrentUserId Long userId, @PathVariable Long id) {
+        return reportService.reopen(userId, id);
     }
 }
