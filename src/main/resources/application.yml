@@ -19,6 +19,12 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+expenseflow:
+  jwt:
+    # Valeur de développement uniquement : surchargée par la variable JWT_SECRET en production.
+    secret: ${JWT_SECRET:F1tgZxsf9r/GaRrWrpbViUv5UrwjX/6cOpbakIaACwQ=}
+    ttl: 24h
+
 logging:
   level:
     org.hibernate.SQL: debug

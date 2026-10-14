@@ -8,6 +8,9 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -46,6 +49,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.warn("Violation de contrainte en base", ex);
         return problem(HttpStatus.CONFLICT, "Conflit de données",
                 "L'opération viole une contrainte d'intégrité.");
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    ProblemDetail handleBadCredentials(BadCredentialsException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Identifiants invalides", ex.getMessage());
+    }
+
+    /**
+     * Jeton absent, mal signé ou expiré. Le message d'origine n'est pas renvoyé :
+     * il décrit le fonctionnement interne du décodeur JWT.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    ProblemDetail handleAuthentication(AuthenticationException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Authentification requise",
+                "Jeton d'accès absent, invalide ou expiré.");
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail handleAccessDenied(AccessDeniedException ex) {
+        return problem(HttpStatus.FORBIDDEN, "Accès refusé", "Vous n'avez pas les droits pour cette opération.");
     }
 
     @ExceptionHandler(Exception.class)
