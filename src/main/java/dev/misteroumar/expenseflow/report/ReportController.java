@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -36,10 +37,13 @@ public class ReportController {
 
     private final ReportService reportService;
 
-    @Operation(summary = "Lister mes notes")
+    @Operation(summary = "Lister les notes visibles",
+            description = "Employé : ses notes. Manager : les siennes et celles de son équipe. "
+                    + "Comptable : les notes APPROVED et PAID. Filtre optionnel par statut.")
     @GetMapping
-    public List<ReportSummaryResponse> list(@CurrentUserId Long userId) {
-        return reportService.listMine(userId);
+    public List<ReportSummaryResponse> list(@CurrentUserId Long userId,
+                                            @RequestParam(required = false) ReportStatus status) {
+        return reportService.list(userId, status);
     }
 
     @Operation(summary = "Créer un brouillon", description = "409 si une note existe déjà pour la période.")

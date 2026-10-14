@@ -39,9 +39,17 @@ public class ReportService {
     private final UserRepository userRepository;
     private final ReportMapper mapper;
 
+    /**
+     * Liste les notes visibles selon le rôle : un employé voit les siennes, un manager y ajoute
+     * celles de son équipe, un comptable celles qui sont approuvées ou payées.
+     *
+     * @param status filtre optionnel sur le statut
+     */
     @Transactional(readOnly = true)
-    public List<ReportSummaryResponse> listMine(Long userId) {
-        return mapper.toSummaries(reportRepository.findByOwnerIdOrderByPeriodYearDescPeriodMonthDesc(userId));
+    public List<ReportSummaryResponse> list(Long userId, ReportStatus status) {
+        User user = loadUser(userId);
+        return mapper.toSummaries(
+                reportRepository.findVisible(user.getId(), user.getRole() == Role.ACCOUNTANT, status));
     }
 
     @Transactional(readOnly = true)
