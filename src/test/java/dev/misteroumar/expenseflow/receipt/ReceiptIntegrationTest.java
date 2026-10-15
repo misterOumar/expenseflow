@@ -3,12 +3,15 @@ package dev.misteroumar.expenseflow.receipt;
 import dev.misteroumar.expenseflow.IntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.ResultActions;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -22,6 +25,9 @@ class ReceiptIntegrationTest extends IntegrationTest {
 
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 0};
     private static final byte[] HTML = "<script>alert(1)</script>".getBytes(StandardCharsets.UTF_8);
+
+    @Value("${expenseflow.receipts.directory}")
+    private Path storageDirectory;
 
     @Test
     @DisplayName("un PDF déposé est restitué à l'identique à son auteur")
@@ -117,6 +123,17 @@ class ReceiptIntegrationTest extends IntegrationTest {
 
         mvc.perform(get("/api/receipts/{id}", receiptId).with(as(ACCOUNTANT)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("404 si le fichier a disparu du stockage")
+    void missingFileGivesNotFound() throws Exception {
+        long id = uploadReceipt(ALICE);
+        String key = jdbc.queryForObject("SELECT stored_key FROM receipts WHERE id = ?", String.class, id);
+        Files.delete(storageDirectory.resolve(key));
+
+        mvc.perform(get("/api/receipts/{id}", id).with(as(ALICE)))
+                .andExpect(status().isNotFound());
     }
 
     private ResultActions upload(String email, MockMultipartFile file)

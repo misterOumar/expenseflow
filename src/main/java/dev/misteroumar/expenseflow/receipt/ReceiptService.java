@@ -6,6 +6,7 @@ import dev.misteroumar.expenseflow.report.ExpenseReportRepository;
 import dev.misteroumar.expenseflow.user.User;
 import dev.misteroumar.expenseflow.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import java.util.Locale;
  * Rien de ce que fournit le client n'est cru sur parole : le format est déterminé par les magic bytes,
  * l'extension doit correspondre à ce format, et le nom d'origine n'est conservé que pour l'affichage.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -68,7 +70,7 @@ public class ReceiptService {
 
     /**
      * Retourne un justificatif si l'utilisateur l'a déposé, ou s'il peut consulter la note qui l'utilise.
-     * Sinon le justificatif est traité comme inexistant (404).
+     * Sinon le justificatif est traité comme inexistant (404). Un fichier absent du disque donne aussi un 404.
      */
     @Transactional(readOnly = true)
     public ReceiptFile download(Long userId, Long receiptId) {
@@ -76,8 +78,12 @@ public class ReceiptService {
         Receipt receipt = receiptRepository.findById(receiptId)
                 .filter(candidate -> canRead(user, candidate))
                 .orElseThrow(() -> new ResourceNotFoundException("Justificatif " + receiptId + " introuvable."));
-        return new ReceiptFile(storage.load(receipt.getStoredKey()), receipt.getContentType(),
-                receipt.getOriginalFilename(), receipt.getSizeBytes());
+        Resource content = storage.load(receipt.getStoredKey());
+        if (!content.exists()) {
+            log.warn("Fichier absent du stockage pour le justificatif {} (clé {})", receiptId, receipt.getStoredKey());
+            throw new ResourceNotFoundException("Le fichier du justificatif " + receiptId + " est indisponible.");
+        }
+        return new ReceiptFile(content, receipt.getContentType(), receipt.getOriginalFilename(), receipt.getSizeBytes());
     }
 
     public record ReceiptFile(Resource content, String contentType, String filename, long size) {
