@@ -293,3 +293,5 @@ Toute demande d'évolution ou écart par rapport à ce document est consigné ic
 | 2026-10-05 | Version de Spring Boot (3.x initialement prévue) | Spring Boot 4.x retenu : version courante, sans impact sur le périmètre fonctionnel. |
 | 2026-10-05 | Endpoint de la transition `REJECTED` → `DRAFT` | Ajout de `POST /api/reports/{id}/reopen`, transition prévue en 4.3 mais absente de la liste des endpoints. |
 | 2026-10-15 | Serveur SMTP de développement (MailHog prévu en 4.6) | Mailpit retenu : successeur maintenu de MailHog, même usage (SMTP sur 1025, interface web sur 8025). |
+| 2026-10-15 | Sonde de santé pour le déploiement | Ajout de Spring Boot Actuator, limité à `/actuator/health` (liveness et readiness) pour les healthchecks Docker et Coolify. Aucun autre endpoint exposé, le serveur SMTP est exclu du calcul de santé. |
+| 2026-10-15 | SMTP de l'environnement en ligne | Mailpit déployé avec l'application : les adresses des comptes de démonstration sont fictives, les emails restent consultables sans être réellement envoyés. Un SMTP réel se branche par variables d'environnement. |
