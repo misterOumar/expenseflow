@@ -10,7 +10,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
@@ -24,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Base des tests d'intégration : application complète, PostgreSQL Testcontainers et comptes
  * de démonstration de la migration V3. Les notes et justificatifs sont vidés avant chaque test.
+ * L'envoi d'emails est simulé par un mock de {@link JavaMailSender}.
  */
 @SpringBootTest(properties = {
         "spring.jpa.properties.hibernate.generate_statistics=true",
@@ -46,6 +49,9 @@ public abstract class IntegrationTest {
 
     @Autowired
     protected JdbcTemplate jdbc;
+
+    @MockitoBean
+    protected JavaMailSender mailSender;
 
     @Autowired
     private UserRepository userRepository;

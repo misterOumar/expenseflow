@@ -13,6 +13,7 @@ import dev.misteroumar.expenseflow.user.Role;
 import dev.misteroumar.expenseflow.user.User;
 import dev.misteroumar.expenseflow.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ public class ReportService {
     private final ReceiptRepository receiptRepository;
     private final UserRepository userRepository;
     private final ReportMapper mapper;
+    private final ApplicationEventPublisher events;
 
     /**
      * Liste les notes visibles selon le rôle : un employé voit les siennes, un manager y ajoute
@@ -174,7 +176,8 @@ public class ReportService {
     }
 
     /**
-     * Enchaîne les trois gardes (visibilité 404, acteur 403, état 409) puis trace la transition.
+     * Enchaîne les trois gardes (visibilité 404, acteur 403, état 409), trace la transition
+     * puis publie {@link ReportStatusChanged}, traité seulement si la transaction est validée.
      */
     private ReportDetailResponse transition(Long userId, Long reportId, ActorCheck actorCheck,
                                             BiConsumer<ExpenseReport, User> action, String comment) {
@@ -184,6 +187,7 @@ public class ReportService {
         ReportStatus from = report.getStatus();
         action.accept(report, actor);
         historyRepository.save(new StatusHistory(report, from, report.getStatus(), actor, comment));
+        events.publishEvent(ReportStatusChanged.of(report, from, actor, comment));
         return mapper.toDetail(report);
     }
 

@@ -19,6 +19,13 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  # En local : Mailpit (SMTP sur 1025, interface web sur http://localhost:8025).
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+
   servlet:
     multipart:
       max-file-size: 5MB
@@ -29,6 +36,8 @@ expenseflow:
     # Valeur de développement uniquement : surchargée par la variable JWT_SECRET en production.
     secret: ${JWT_SECRET:F1tgZxsf9r/GaRrWrpbViUv5UrwjX/6cOpbakIaACwQ=}
     ttl: 24h
+  notification:
+    from: ${MAIL_FROM:ExpenseFlow <noreply@expenseflow.dev>}
   receipts:
     directory: ${RECEIPTS_DIR:./data/receipts}
     max-size: 5MB

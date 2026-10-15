@@ -292,3 +292,4 @@ Toute demande d'évolution ou écart par rapport à ce document est consigné ic
 |---|---|---|
 | 2026-10-05 | Version de Spring Boot (3.x initialement prévue) | Spring Boot 4.x retenu : version courante, sans impact sur le périmètre fonctionnel. |
 | 2026-10-05 | Endpoint de la transition `REJECTED` → `DRAFT` | Ajout de `POST /api/reports/{id}/reopen`, transition prévue en 4.3 mais absente de la liste des endpoints. |
+| 2026-10-15 | Serveur SMTP de développement (MailHog prévu en 4.6) | Mailpit retenu : successeur maintenu de MailHog, même usage (SMTP sur 1025, interface web sur 8025). |
