@@ -1,0 +1,52 @@
+# Déploiement complet : API, PostgreSQL et Mailpit (SMTP de démonstration).
+# Variables obligatoires : POSTGRES_PASSWORD, JWT_SECRET.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/expenseflow
+      SPRING_DATASOURCE_USERNAME: expenseflow
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est obligatoire}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET est obligatoire}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-ExpenseFlow <noreply@expenseflow.dev>}
+      # Derrière le reverse proxy : URL publiques (Location, Swagger) en https.
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: info
+    volumes:
+      - receipts:/data/receipts
+    expose:
+      - "8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: expenseflow
+      POSTGRES_USER: expenseflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est obligatoire}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U expenseflow -d expenseflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    expose:
+      - "1025"
+      - "8025"
+
+volumes:
+  pgdata:
+  receipts:
