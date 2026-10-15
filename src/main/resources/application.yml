@@ -42,6 +42,21 @@ expenseflow:
     directory: ${RECEIPTS_DIR:./data/receipts}
     max-size: 5MB
 
+# Seul l'état de santé est exposé (sonde Docker / Coolify). Le serveur SMTP en est exclu :
+# une panne d'email ne doit pas rendre l'application indisponible.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    mail:
+      enabled: false
+
 logging:
   level:
     org.hibernate.SQL: debug

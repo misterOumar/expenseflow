@@ -48,6 +48,15 @@ class AuthIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    @DisplayName("l'état de santé est public, sans détail")
+    void healthIsPublic() throws Exception {
+        mvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components").doesNotExist());
+    }
+
+    @Test
     @DisplayName("401 en ProblemDetail sans jeton")
     void rejectsMissingToken() throws Exception {
         mvc.perform(get("/api/reports"))
