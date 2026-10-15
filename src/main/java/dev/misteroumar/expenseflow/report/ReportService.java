@@ -38,6 +38,7 @@ public class ReportService {
     private final ReceiptRepository receiptRepository;
     private final UserRepository userRepository;
     private final ReportMapper mapper;
+    private final ReportPdfRenderer pdfRenderer;
     private final ApplicationEventPublisher events;
 
     /**
@@ -122,6 +123,27 @@ public class ReportService {
     public List<StatusHistoryResponse> history(Long userId, Long reportId) {
         ExpenseReport report = loadVisibleReport(loadUser(userId), reportId);
         return mapper.toHistories(historyRepository.findByReportIdOrderByAtAsc(report.getId()));
+    }
+
+    /**
+     * Génère à la volée le récapitulatif PDF d'une note approuvée ou payée (§4.5). Rien n'est stocké.
+     *
+     * @throws BusinessConflictException si la note n'est ni APPROVED ni PAID
+     */
+    @Transactional(readOnly = true)
+    public ReportPdf exportPdf(Long userId, Long reportId) {
+        ExpenseReport report = loadVisibleReport(loadUser(userId), reportId);
+        if (report.getStatus() != ReportStatus.APPROVED && report.getStatus() != ReportStatus.PAID) {
+            throw new BusinessConflictException(
+                    "La note " + reportId + " est en statut " + report.getStatus()
+                            + " : seule une note approuvée ou payée peut être exportée.");
+        }
+        String filename = "note-de-frais-%d-%02d-%d.pdf".formatted(
+                report.getPeriodYear(), report.getPeriodMonth(), report.getId());
+        return new ReportPdf(filename, pdfRenderer.render(mapper.toDetail(report)));
+    }
+
+    public record ReportPdf(String filename, byte[] content) {
     }
 
     /**

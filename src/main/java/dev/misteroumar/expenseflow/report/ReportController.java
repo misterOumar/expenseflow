@@ -11,6 +11,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -102,6 +105,17 @@ public class ReportController {
     @GetMapping("/{id}/history")
     public List<StatusHistoryResponse> history(@CurrentUserId Long userId, @PathVariable Long id) {
         return reportService.history(userId, id);
+    }
+
+    @Operation(summary = "Exporter une note en PDF", description = "Note APPROVED ou PAID uniquement, sinon 409.")
+    @GetMapping("/{id}/export.pdf")
+    public ResponseEntity<byte[]> exportPdf(@CurrentUserId Long userId, @PathVariable Long id) {
+        ReportService.ReportPdf pdf = reportService.exportPdf(userId, id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(pdf.filename()).build().toString())
+                .body(pdf.content());
     }
 
     @Operation(summary = "Soumettre une note", description = "Propriétaire. 409 si la note est vide ou si une ligne n'a pas de justificatif.")
