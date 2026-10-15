@@ -1,7 +1,7 @@
 package dev.misteroumar.expenseflow.receipt;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.core.io.PathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +42,7 @@ public class ReceiptStorage {
     }
 
     public Resource load(String key) {
-        return new PathResource(resolve(key));
+        return new FileSystemResource(resolve(key));
     }
 
     public void delete(String key) {
